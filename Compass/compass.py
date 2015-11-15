@@ -8,6 +8,15 @@ path = "/home/pi/SERA/Pipes/p_compass";
 bus = smbus.SMBus(1);
 address = 0x1e;
 PI = 3.141592654;
+rad2degree = 57.3;
+
+x_gainError = 0.90;
+y_gainError = 0.91;
+
+x_offset = -116.76;
+y_offset = -18.36;
+
+gain_fact = 1.22;
 
 bus.write_byte_data(address, 0x02, 0x00);
 
@@ -23,13 +32,18 @@ while True:
 	x = sint((data[0] << 8) | data[1]);
 	y = sint((data[4] << 8) | data[5]);
 
-	heading = math.atan2(y,x);
-	
-	if (heading < 0) : heading += 2 * PI;	
-	if (heading > 2*PI) : heading -= 2*PI;
-		
-	angle = heading * 180/PI;
+	x_scaled= x * gain_fact * x_gainError + x_offset;
+  	y_scaled= y * gain_fact * y_gainError + y_offset;
 
+	if (y_scaled > 0):
+		angle = 90-math.atan(x_scaled/y_scaled) * rad2degree;
+  	elif (y_scaled < 0):
+  		angle = 270-math.atan(x_scaled/y_scaled) * rad2degree;
+  	elif (y_scaled==0 & x_scaled<0):
+  		angle = 180;
+  	else:
+  		angle = 0;
+  
 	os.write(pipe,str(angle));
 	os.close(pipe);	
 	time.sleep(0.05);
