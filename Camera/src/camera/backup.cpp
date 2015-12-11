@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-#include <math.h> 
+#include <math.h>  
+#include "pixy.h" 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
@@ -53,13 +54,10 @@ int distance();
     
 int main(int argc, char * argv[])
 {
+    int pixy_init_status;
     int return_value;
     int32_t response;
-    printf("Hello %d\n", 0);
-    system(raspistill -o ~/img.jpg -hf -vf -awb incandescent -t 2);
-
-    return 0;
-
+    
     uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]; //map[y][x]
 
     for(int y=0; y<FIELD_DIMENSION; y++)
@@ -76,6 +74,7 @@ int main(int argc, char * argv[])
 
     mapBot(map);
 
+    
     Rect object;
     
     {
@@ -86,6 +85,7 @@ int main(int argc, char * argv[])
     }
     
 
+    pixy_close();
     exit(0);
   
 }
@@ -392,76 +392,11 @@ void serial(char input)
 
 Mat getImage()
 {
-    Mat xy;
+   
 
-    return xy;
+    return renderBA81(renderflags,rwidth,rheight,numPixels,pixels);
 }
 
-inline void interpolateBayer(uint16_t width, uint16_t x, uint16_t y, uint8_t *pixel, uint8_t* r, uint8_t* g, uint8_t* b)
-{
-    if (y&1)
-    {
-        if (x&1)
-        {
-            *r = *pixel;
-            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
-            *b = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
-        }
-        else
-        {
-            *r = (*(pixel-1)+*(pixel+1))>>1;
-            *g = *pixel;
-            *b = (*(pixel-width)+*(pixel+width))>>1;
-        }
-    }
-    else
-    {
-        if (x&1)
-        {
-            *r = (*(pixel-width)+*(pixel+width))>>1;
-            *g = *pixel;
-            *b = (*(pixel-1)+*(pixel+1))>>1;
-        }
-        else
-        {
-            *r = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
-            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
-            *b = *pixel;
-        }
-    }
-
-}
-
-Mat renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame)
-{
-    uint16_t x, y;
-    uint8_t r, g, b;
-    Mat imageRGB;
-    Mat imageHSV;
-
-    frame += width;
-    uchar data[3*((height-2)*(width-2))];
-
-    uint m = 0;
-    for (y=1; y<height-1; y++)
-    {
-        frame++;
-        for (x=1; x<width-1; x++, frame++)
-        {
-            interpolateBayer(width, x, y, frame, &r, &g, &b);
-            data[m++] = b;
-            data[m++] = g;
-            data[m++] = r;
-        }
-        frame++;
-    }
-
-    imageRGB =  Mat(height - 2,width -2, CV_8UC3, data);
-    
-    cvtColor (imageRGB,imageHSV,CV_BGR2HSV);
-    
-    return imageHSV;
-}
 
 void mouseEvent(int evt, int x, int y, int flags, void* param) 
 {                    

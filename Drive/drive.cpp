@@ -2,21 +2,35 @@
 #include<sys/syscall.h>
 #include<stdio.h>
 #include <termios.h>
+#include <stdlib.h>
 
 #define PATH  "/home/pi/SERA/Pipes/p_serial"
+#define COMPASS "/home/pi/SERA/Pipes/p_compass"
 
 void serial(char input);
 char getch(void);
+int angle(void);
 
 int main ()
 {
 	while(1){
-// 		char input = getchar();
 		char input = getch();
 		serial(input);
 	}
 
-    	return (0);
+    return (0);
+}
+
+int angle(){
+	FILE* fp;
+	char readbuf[10];
+	int angle;
+	fp = fopen(COMPASS, "r");
+	fgets(readbuf, 10, fp);
+	fclose(fp);
+
+	angle = atoi(readbuf);
+	return angle;
 }
 
 void serial(char input)

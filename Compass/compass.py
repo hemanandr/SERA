@@ -10,11 +10,11 @@ address = 0x1e;
 PI = 3.141592654;
 rad2degree = 57.3;
 
-x_gainError = 0.90;
-y_gainError = 0.91;
+x_gainError = 1;
+y_gainError = 1;
 
-x_offset = -116.76;
-y_offset = -18.36;
+x_offset = 0;
+y_offset = 0;
 
 gain_fact = 1.22;
 

@@ -55,11 +55,6 @@ int main(int argc, char * argv[])
 {
     int return_value;
     int32_t response;
-    printf("Hello %d\n", 0);
-    system(raspistill -o ~/img.jpg -hf -vf -awb incandescent -t 2);
-
-    return 0;
-
     uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]; //map[y][x]
 
     for(int y=0; y<FIELD_DIMENSION; y++)
@@ -116,6 +111,16 @@ Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
     inRange(imageHSV, Scalar(0,150,0), Scalar(4,200,255),red);
     inRange(imageHSV, Scalar(0,0,0), Scalar(0,0,25),black);
 
+
+    imwrite("/home/pi/RGB.jpg", imageRGB);
+    imwrite("/home/pi/HSV.jpg", imageHSV);
+    imwrite("/home/pi/White.jpg", white);
+    imwrite("/home/pi/Blue.jpg", blue);
+    imwrite("/home/pi/DBlue.jpg", dblue);
+    imwrite("/home/pi/Red.jpg", red);
+    imwrite("/home/pi/Yellow.jpg", yellow);
+    imwrite("/home/pi/Black.jpg", black);
+
     //Detect the game field
     contourOutput = blue.clone();
     findContours( contourOutput, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
@@ -139,6 +144,8 @@ Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
     contourOutput = imageHSV.clone();
     findContours( contourOutput, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
     
+    imwrite("/home/pi/HSV.jpg", imageHSV);
+
     //Check if detected contour is within the Field Contour
     for(int i = 0; i < contours.size(); i++)
     {
@@ -274,11 +281,6 @@ void mapObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION], int8_t x, int8_t y
         x_end = botx + width/2 + x;
     }
 
-
-    printf("X %d %d %d\n", botx, width/2, x);
-    printf("X %d %d\n", x_start, x_end);
-    printf("Y %d %d\n", y_start, y_end);
-
     for(int i = y_start; i < y_end; i++)
     {
         for(int j = x_start; j < x_end; j++)
@@ -385,80 +387,14 @@ void serial(char input)
 }
 
 
-
-
-
-
-
 Mat getImage()
 {
-    Mat xy;
+    Mat imageRGB, imageHSV;
+    system("sudo python /home/pi/pic.py");//"/home/pi/./x.sh");
+    imageRGB = imread("/home/pi/image.jpg", CV_LOAD_IMAGE_COLOR);
 
-    return xy;
-}
-
-inline void interpolateBayer(uint16_t width, uint16_t x, uint16_t y, uint8_t *pixel, uint8_t* r, uint8_t* g, uint8_t* b)
-{
-    if (y&1)
-    {
-        if (x&1)
-        {
-            *r = *pixel;
-            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
-            *b = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
-        }
-        else
-        {
-            *r = (*(pixel-1)+*(pixel+1))>>1;
-            *g = *pixel;
-            *b = (*(pixel-width)+*(pixel+width))>>1;
-        }
-    }
-    else
-    {
-        if (x&1)
-        {
-            *r = (*(pixel-width)+*(pixel+width))>>1;
-            *g = *pixel;
-            *b = (*(pixel-1)+*(pixel+1))>>1;
-        }
-        else
-        {
-            *r = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
-            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
-            *b = *pixel;
-        }
-    }
-
-}
-
-Mat renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame)
-{
-    uint16_t x, y;
-    uint8_t r, g, b;
-    Mat imageRGB;
-    Mat imageHSV;
-
-    frame += width;
-    uchar data[3*((height-2)*(width-2))];
-
-    uint m = 0;
-    for (y=1; y<height-1; y++)
-    {
-        frame++;
-        for (x=1; x<width-1; x++, frame++)
-        {
-            interpolateBayer(width, x, y, frame, &r, &g, &b);
-            data[m++] = b;
-            data[m++] = g;
-            data[m++] = r;
-        }
-        frame++;
-    }
-
-    imageRGB =  Mat(height - 2,width -2, CV_8UC3, data);
-    
     cvtColor (imageRGB,imageHSV,CV_BGR2HSV);
+    imwrite("/home/pi/X.jpg", imageHSV);
     
     return imageHSV;
 }
