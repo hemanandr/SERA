@@ -31,7 +31,7 @@ ser = Connect();
 while 1:
 	try:
 		pipe = os.open(path, os.O_RDONLY | os.O_NONBLOCK);
-		input = os.read(pipe,10);
+		input = os.read(pipe,100);
 	except OSError as err:
 		if err.errno == 11:
 			continue;
@@ -39,18 +39,20 @@ while 1:
 			raise err;
 	
 	if input:
+#		print input;
 		try:	
-			ser.write(input);
+			ser.write(input[0]);
 			time.sleep(0.1);
 		except serial.serialutil.SerialException as err:
 			ser = Connect();
-			ser.write(input);
+			ser.write(input[0]);
 	os.close(pipe);
 
 	
 	arduino = ser.readline();
 
 	if arduino:
+	#	print arduino;
 		try:
 			pipe = os.open(output, os.O_WRONLY | os.O_NONBLOCK);
 			os.write(pipe, arduino);

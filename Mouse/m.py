@@ -25,16 +25,16 @@ def getMouseEvent():
 
 while( 1 ):
   	dis = getMouseEvent();
-	point_x = point_x + (0.037 * dis.x);
-	point_y = point_y + (0.037 * dis.y);
+	point_x = point_x + (0.046875 * dis.x);
+	point_y = point_y + (0.046875 * dis.y);
 	tx = tx + dis.x;
 	ty = ty + dis.y;
-#	print ("%d  %d" % (tx, ty));
- 	print ("%dcm  %dcm\n" % (point_x/10, point_y/10));
-
+	print ("%d  %d" % (tx, ty));
+# 	print ("%dcm  %dcm\n" % (point_x/10, point_y/10));
+	
 	try:
 		pipe = os.open(output, os.O_WRONLY | os.O_NONBLOCK);
-		os.write(pipe, "%d %d" % (point_x/10,point_y/10));
+		os.write(pipe, "%d %d" % (point_x,point_y));
 		os.close(pipe);
 	except OSError as err:
 		if err.errno == 6:

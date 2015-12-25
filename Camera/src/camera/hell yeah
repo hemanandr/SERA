@@ -1,0 +1,13 @@
+int my;
+    serial('w');
+                do
+                {
+                    my = mouse().y;
+                }while(my < 135);
+                serial('s');
+
+    serial('m');
+    serial('t');
+    serial('t');
+
+    mouse_y = my;
