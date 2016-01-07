@@ -52,7 +52,7 @@ while 1:
 	arduino = ser.readline();
 
 	if arduino:
-	#	print arduino;
+		print arduino;
 		try:
 			pipe = os.open(output, os.O_WRONLY | os.O_NONBLOCK);
 			os.write(pipe, arduino);

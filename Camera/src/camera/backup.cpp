@@ -3,8 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-#include <math.h>  
-#include "pixy.h" 
+#include <math.h> 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
@@ -15,106 +14,352 @@
 using namespace cv;
 using namespace std;
 
-#define NORTH   0
-#define SOUTH   1
-#define EAST    2
-#define WEST    3
-
-#define FOCAL_LENGTH        0.28
-#define FRAME_HEIGHT        200
-#define FRAME_WIDTH         320
-#define SENSOR_HEIGHT       0.243
-#define SENSOR_WIDTH        0.3888
-#define ANGLE_PER_PIXEL_X   75.0/320.0
-#define ANGLE_PER_PIXEL_Y   47.0/200.0
+#define FOCAL_LENGTH        0.36
+#define FRAME_HEIGHT        768
+#define FRAME_WIDTH         1024
+#define SENSOR_HEIGHT       0.2738
+#define SENSOR_WIDTH        0.3673
+#define ANGLE_PER_PIXEL_X   53.5/1024.0
+#define ANGLE_PER_PIXEL_Y   41.41/768.0
 
 #define PI              3.14159265
 
 #define FIELD_DIMENSION 300
 #define SERIAL          "/home/pi/SERA/Pipes/p_serial"
 #define OUTPUT          "/home/pi/SERA/Pipes/p_output"
-
-int direction = NORTH;
-uint8_t botx = 150, boty = 30;
+#define MOUSE          "/home/pi/SERA/Pipes/p_mouse"
+#define MOUSE_I   "/home/pi/SERA/Pipes/p_mousei"
 
 void interpolateBayer(unsigned int width, unsigned int x, unsigned int y, unsigned char *pixel, unsigned int &r, unsigned int &g, unsigned int &b);
 Mat renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame);
 void mouseEvent(int evt, int x, int y, int flags, void* param) ;
 Mat getImage();
-Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]);
-Point destLocation(float realWidth, Rect object);
+bool getObject();
+bool dropObject();
 
 Point location(float realHeight, Rect object);
-void printMap(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]);
-void mapBot(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]);
-void mapObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION], int8_t x, int8_t y);
-void serial(char input);
-int distance();
+Point destinationLocation(float realHeight, Rect object);
 
-    
+int distance();
+void serial(char input);
+
+int serialR();
+bool gripObject();
+Point mouse();
+void turnL();
+void turnR();
+
+void moveTo(int x, int y);
+
+vector<Point> obstacles;
+vector<Point> objects;
+Point destination = Point(999,999);
+
+int angle_offset = 0;
+int mouse_x = 0;
+int mouse_y = 0;
+int direction_x = 1;
+int direction_y = 1;
+
 int main(int argc, char * argv[])
 {
-    int pixy_init_status;
-    int return_value;
-    int32_t response;
-    
-    uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION]; //map[y][x]
+    bool fr;
+    bool grip;
 
-    for(int y=0; y<FIELD_DIMENSION; y++)
+    int my;
+    serial('w');
+    do
     {
-        for(int x=0; x<FIELD_DIMENSION; x++)
-        {
-            if(x%2)
-                map[y][x] = 0;
-            else
-                map[y][x] = 0;
+        my = mouse().y;
+        printf("%d\n",my );
+    }while(my < 135);
+    serial('s');
+    usleep(5000);
+                    
+    serial('m');
+    serial('t');
+    serial('t');
 
-        }
+    mouse_y = my;
+
+
+    fr = getObject();
+    
+    while(objects.size() == 0)
+    {
+        serial('t');
+        fr = getObject();
     }
 
-    mapBot(map);
-
-    
-    Rect object;
-    
+    while(1)
     {
-        Point objectLocation;
-        time_t now = time(0);
-        char* dt = ctime(&now);
-        object = getObject(map);
+        grip = gripObject();
     }
-    
 
-    pixy_close();
-    exit(0);
-  
+    return 0;
 }
 
-Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
+bool gripObject()
 {
     Mat imageHSV;
     Mat imageRGB;
-    Mat white, blue, dblue, red, yellow, black;
+    Mat green, yellow, blue, red;
     Mat contourOutput, temp, output;
-    
+    Rect x;
+    bool free = true;
+
     vector<vector<Point> > contours;
     vector<vector<Point> > objectContours;
     vector<Point> fieldContour;
 
     int largest_area;
     int largest_contour_index=0;
-    int top = 200;
 
     imageHSV = getImage();
     cvtColor(imageHSV,imageRGB,CV_HSV2BGR);
    
-    //Adjusted On 25/11/2015
-    inRange(imageHSV, Scalar(105,70,25), Scalar(120,120,45),dblue);
-    inRange(imageHSV, Scalar(20,5,120), Scalar(65,60,255),white);
-    inRange(imageHSV, Scalar(30,5,80), Scalar(105,100,160),blue);
-    inRange(imageHSV, Scalar(20,140,130), Scalar(30,170,175),yellow);
-    inRange(imageHSV, Scalar(0,150,0), Scalar(4,200,255),red);
-    inRange(imageHSV, Scalar(0,0,0), Scalar(0,0,25),black);
+
+    inRange(imageHSV, Scalar(25,230,90), Scalar(40,255,255),yellow);
+    inRange(imageHSV, Scalar(60,140,50), Scalar(100,255,200),green);
+    inRange(imageHSV, Scalar(150,150,90), Scalar(180,240,255),red);
+        
+    Mat combined;// = yellow.clone();
+    bitwise_or(red, yellow, combined);
+    //bitwise_or(combined, green, combined);
+    
+
+    {  
+        findContours( combined.clone(), objectContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+        drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+
+        largest_area = 0;
+        largest_contour_index = -1;
+
+        for( int i = 0; i< objectContours.size(); i++ )  
+        {
+           double a = contourArea( objectContours[i], false);
+           if(a > largest_area){
+                 largest_area = a;
+                 largest_contour_index = i;
+          }
+        }
+
+        if(largest_contour_index != -1)
+        {
+            drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,255), 1, 8);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
+            Point collection = destinationLocation(5,object);
+
+            printf("Object : %d %d\n", collection.x, collection.y);
+            if(collection.x > -4  & collection.x < 5){
+                int my, mx;
+                
+                if(collection.y < 40)
+                    serial('i');
+
+                if(collection.y < 20)
+                {
+
+                    serial('s');
+                    usleep(5000);
+                    serial('p');
+                    usleep(5000);
+                    serial('m');
+                    while(1){
+                        bool x = dropObject;
+                    }
+                }
+
+                serial('w');
+                usleep(5000);
+                
+                do
+                {
+                    my = mouse().y;
+                    printf("Mouse Y : %d Offset : %d\n", my, mouse_y );
+                }while(my < abs(collection.y) - 50);
+                serial('s');
+
+                mouse_y = my;
+
+                return gripObject();
+            }
+            else{
+                if(collection.x < 0){
+                    turnL();   
+                }
+                else if(collection.x > 0){
+                    turnR();     
+                }
+                return gripObject();   
+            }
+        }
+    } 
+
+
+
+    #if 0
+    imwrite("/home/pi/RGB.jpg", imageRGB);
+    imwrite("/home/pi/HSV.jpg", imageHSV);
+    imwrite("/home/pi/Yellow.jpg", yellow);
+    imwrite("/home/pi/Green.jpg", green);
+    #endif
+
+    return free;
+}
+
+bool dropObject()
+{
+    Mat imageHSV;
+    Mat imageRGB;
+    Mat white;
+    Mat contourOutput, temp, output;
+    Rect x;
+    bool free = true;
+
+    vector<vector<Point> > contours;
+    vector<vector<Point> > objectContours;
+    vector<Point> fieldContour;
+
+    int largest_area;
+    int largest_contour_index=0;
+
+    imageHSV = getImage();
+    cvtColor(imageHSV,imageRGB,CV_HSV2BGR);
+   
+    inRange(imageHSV, Scalar(15,0,165), Scalar(100,25,255),white);
+
+        
+    Mat combined = white.clone();
+    
+    {  
+        findContours( combined.clone(), objectContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+        drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+        largest_area = 0;
+        largest_contour_index = -1;
+
+        for( int i = 0; i< objectContours.size(); i++ )  
+        {
+           double a = contourArea( objectContours[i], false);
+           if(a > largest_area){
+                 largest_area = a;
+                 largest_contour_index = i;
+          }
+        }
+
+        
+        if(largest_contour_index != -1)
+        {
+            drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,255), 1, 8);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
+            Point collection = destinationLocation(30,object);
+
+            printf("Object : %d %d\n", collection.x, collection.y);
+            if(collection.x > -6  & collection.x < 6){
+                int my, mx;
+                
+                if(collection.y < 10)
+                {
+                    serial('s');
+                    usleep(5000);
+                    serial('l');
+                    usleep(5000);
+                    exit(0);
+                }
+                serial('w');
+                do
+                {
+                    my = mouse().y;
+                    printf("Mouse Y : %d Offset : %d\n", my, mouse_y );
+                }while(my < abs(collection.y) - 50);
+                serial('s');
+
+                mouse_y = my;
+
+                return true;
+            }
+            else{
+                if(collection.x < 0){
+                    turnL();   
+                }
+                else if(collection.x > 0){
+                    turnR();     
+                }
+                return dropObject();   
+            }
+        }
+    } 
+
+
+
+    #if 0
+    imwrite("/home/pi/RGB.jpg", imageRGB);
+    imwrite("/home/pi/HSV.jpg", imageHSV);
+    imwrite("/home/pi/Yellow.jpg", yellow);
+    imwrite("/home/pi/Green.jpg", green);
+    #endif
+
+    return free;
+}
+
+
+void turnR(){
+        serial('t');
+}
+
+void turnL(){
+        serial('r');
+}
+
+
+
+bool getObject()
+{
+    Mat imageHSV;
+    Mat imageRGB;
+    Mat white, blue, dblue, red, yellow, black, green, gray;
+    Mat contourOutput, temp, output;
+    Rect x;
+
+    vector<vector<Point> > contours;
+    vector<vector<Point> > objectContours;
+    vector<Point> fieldContour;
+
+    int largest_area;
+    int largest_contour_index=0;
+
+    imageHSV = getImage();
+    cvtColor(imageHSV,imageRGB,CV_HSV2BGR);
+   
+
+    inRange(imageHSV, Scalar(90,60,180), Scalar(105,220,255),blue);
+    inRange(imageHSV, Scalar(15,0,165), Scalar(100,25,255),white);
+
+    inRange(imageHSV, Scalar(80,20,150), Scalar(120,100,255),gray);
+
+    inRange(imageHSV, Scalar(25,230,90), Scalar(40,255,255),yellow);
+    inRange(imageHSV, Scalar(60,140,50), Scalar(100,255,200),green);
+    inRange(imageHSV, Scalar(150,150,90), Scalar(180,240,255),red);
+    
+    inRange(imageHSV, Scalar(0,0,0), Scalar(180,190,90),black);
+
+    #if 0
+    namedWindow( "RGB", CV_WINDOW_NORMAL );
+    namedWindow( "HSV", CV_WINDOW_NORMAL );
+
+    namedWindow( "X", CV_WINDOW_NORMAL );
+//  namedWindow( "Y", CV_WINDOW_NORMAL );
+
+    imshow("HSV", imageHSV);
+    imshow("RGB", imageRGB);
+    imshow("X", green);
+//    imshow("Y", gray);
+
+    setMouseCallback("RGB", mouseEvent, &imageHSV);
+    //waitKey(0);
+    #endif
 
     //Detect the game field
     contourOutput = blue.clone();
@@ -131,73 +376,179 @@ Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
     }
     
     //Draw the Field Contour
-    drawContours( imageRGB, contours, largest_contour_index, Scalar(255,0,0), 1, 8);
+    drawContours( imageRGB, contours, largest_contour_index, Scalar(0,255,0), 3, 8);
     fieldContour = contours[largest_contour_index];
 
-    //Edge detection on the HSV Image
-    Canny( imageHSV, imageHSV, 100, 250, 3);
-    contourOutput = imageHSV.clone();
-    findContours( contourOutput, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+/*****************************************************************************************************
+                                Check for Collection Point
+******************************************************************************************************/
+if(1)
+{  
+    findContours( white.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
     
     //Check if detected contour is within the Field Contour
     for(int i = 0; i < contours.size(); i++)
     {
         for(int j = 0; j < contours[i].size(); j++)
         {
-            double test = pointPolygonTest(fieldContour, contours[i][j], false);   
-            if(test > -1)
+            double test = pointPolygonTest(fieldContour, contours[i][j], true);  
+            if(test > -5)
             {
-                objectContours.push_back(contours[i]);
-                break;
+                if(contourArea( contours[i], false) > 15.0){
+                    objectContours.push_back(contours[i]);
+                    break;
+                }
             }
         }
     }
     
-    //Destination Point Detection
+    drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+    largest_area = 0;
+    largest_contour_index = -1;
+
+    for( int i = 0; i< objectContours.size(); i++ )  
     {
-        int width = 0;
-        float min_pixel_ratio = 100;
-        Rect object;
-        RotatedRect minEllipse;
-            
-        for( int i = 0; i < objectContours.size(); i++ ){  
-            float pixel_ratio = 0.0;
+       double a = contourArea( objectContours[i], false);
+       if(a > largest_area){
+             largest_area = a;
+             largest_contour_index = i;
+      }
+    }
+    
+    if(largest_contour_index != -1)
+    {
+        Rect object = boundingRect(objectContours[largest_contour_index]);
+        Point collection = destinationLocation(30,object);
+        printf("%d %d\n", object.width, object.height);
+        printf("Destination : %d %d\n", collection.x, collection.y);
+        destination.x = collection.x;
+        destination.y = collection.y;
+    }
+}    
 
-            Mat image(198, 318, CV_8UC3, Scalar(0));
-            
-            if(objectContours[i].size() > 5)
+/*****************************************************************************************************
+                                            Object Detection
+******************************************************************************************************/
+if(1)
+{
+    Mat combined;
+    //bitwise_or(green, yellow, combined);
+    bitwise_or(yellow, red, combined);
+        
+    while(1)
+    {  
+        objectContours.clear();
+        findContours( combined.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+        
+        //Check if detected contour is within the Field Contour
+        for(int i = 0; i < contours.size(); i++)
+        {
+            for(int j = 0; j < contours[i].size(); j++)
             {
-                minEllipse = fitEllipse( Mat(objectContours[i]) );
-            
-                ellipse(image, minEllipse, Scalar(255,255,255), -1);
-                inRange(image,Scalar(255,255,255),Scalar(255,255,255),image);
-
-                bitwise_and(image,white,temp);
-
-                int x = countNonZero(image);
-                int y = countNonZero(temp);
-                pixel_ratio = (float)x / (float)y;
-                        
-                if((pixel_ratio < min_pixel_ratio)){
-                    min_pixel_ratio = pixel_ratio;
-                    ellipse( imageRGB, minEllipse, Scalar(0,0,255), 1);
-                    object = boundingRect(objectContours[i]);
+                double test = pointPolygonTest(fieldContour, contours[i][j], true);  
+                if(test > -5)
+                {
+                    if(contourArea( contours[i], false) > 15.0){
+                        objectContours.push_back(contours[i]);
+                        break;
+                    }
                 }
             }
         }
 
-        Point collection = destLocation(30,object);
-    
-        if((collection.y > 0) & (collection.y < 200))
+        drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+        largest_area = 0;
+        largest_contour_index = -1;
+
+        for( int i = 0; i< objectContours.size(); i++ )  
         {
-            printf("%d %d\n", collection.x, collection.y);
-            mapObject(map, collection.x, collection.y);
+           double a = contourArea( objectContours[i], false);
+           if(a > largest_area){
+                 largest_area = a;
+                 largest_contour_index = i;
+          }
         }
-    }
+        
+        if(largest_contour_index != -1)
+        {
+            drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,0), -1, 8);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
 
-   
-    
+            if(object.x < 50| object.x > 975)
+                continue;
 
+            Point collection = location(20,object);
+            objects.push_back(Point(collection.x, collection.y));
+            printf("Object : %d %d\n", collection.x, collection.y);
+        }
+        else
+        {
+            break;
+        }
+    }   
+} 
+
+/*****************************************************************************************************
+                                        Obstacle Detection
+******************************************************************************************************/
+if(0)
+{
+    Mat combined;
+    bitwise_or(black, gray, combined);
+
+    while(1)
+    {
+        imwrite("/home/pi/Obstacle.jpg", combined);
+
+        objectContours.clear();
+        findContours( combined.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+        
+        //Check if detected contour is within the Field Contour
+        for(int i = 0; i < contours.size(); i++)
+        {
+            for(int j = 0; j < contours[i].size(); j++)
+            {
+                double test = pointPolygonTest(fieldContour, contours[i][j], true);  
+                if(test > -5)
+                {
+                    if(contourArea( contours[i], false) > 4000.0){
+                        objectContours.push_back(contours[i]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+        largest_area = 0;
+        largest_contour_index = -1;
+
+        for( int i = 0; i< objectContours.size(); i++ )  
+        {
+           double a = contourArea( objectContours[i], false);
+           if(a > largest_area){
+                 largest_area = a;
+                 largest_contour_index = i;
+          }
+        }
+        
+        if(largest_contour_index != -1)
+        {
+            drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,0), -1, 8);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
+            Point collection = location(38,object);
+            printf("Obstacle : %d %d\n", collection.x, collection.y);
+            objects.push_back(Point(collection.x, collection.y));
+        }
+        else
+        {
+            break;
+        }
+    }   
+} 
 
     #if 1
     imwrite("/home/pi/RGB.jpg", imageRGB);
@@ -208,155 +559,57 @@ Rect getObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
     imwrite("/home/pi/Red.jpg", red);
     imwrite("/home/pi/Yellow.jpg", yellow);
     imwrite("/home/pi/Black.jpg", black);
+    imwrite("/home/pi/Gray.jpg", gray);
     #endif
 
-    #if 0
-    namedWindow( "RGB", CV_WINDOW_NORMAL );
-    namedWindow( "HSV", CV_WINDOW_NORMAL );
-    namedWindow( "Mask", CV_WINDOW_NORMAL);
+    imageRGB.release();
+    imageHSV.release();
+    white.release();
+    blue.release();
+    dblue.release();
+    red.release();
+    yellow.release();
+    black.release();
+    gray.release();
+    contourOutput.release();
+
+    temp.release();
+    output.release();
+
     
-    imshow("HSV", xa);
-    imshow("RGB", imageRGB);
-    imshow("Mask", blue);
 
-    setMouseCallback("Mask", mouseEvent, &xa);
-    waitKey(0);
-    #endif
-
-
-    printMap(map);
-
-    Rect z = boundingRect(contours[largest_contour_index]);
-    
-    return z;
+    return true;
 }
 
-Point destLocation(float realWidth, Rect object)
-{
-    float x, y, diagnol, angle, angle_y;
-    
-    diagnol = (FOCAL_LENGTH * realWidth * FRAME_WIDTH) / (object.width * SENSOR_WIDTH);
-    angle = ((object.x + object.width / 2) - (320/2)) * ANGLE_PER_PIXEL_X;
-    angle_y = ((object.y + object.height / 2) - (200/2)) * ANGLE_PER_PIXEL_Y;
-
-    x = diagnol * sin(angle * PI / 180);
-    y = diagnol * cos(angle * PI / 180);
-   
-    return Point(x,y);
-}
-
-void mapBot(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
-{
-    uint8_t length = 40;
-    uint8_t width = 30;
-
-    for(int i = boty - length/2; i < boty + length/2; i++)
-    {
-        for(int j = botx - width/2; j < botx + width/2; j++)
-        {
-            map[i][j] = 1;
-        }
-    }
-}
-
-void mapObject(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION], int8_t x, int8_t y)
-{
-    uint8_t length = 30;
-    uint8_t width = 30;
-
-    uint8_t y_start, y_end, x_start, x_end;
-
-    if(direction == NORTH){
-        y_start = boty - length/2 + y;
-        y_end = boty + length/2 + y;
-
-        x_start = botx - width/2 + x;
-        x_end = botx + width/2 + x;
-    }
-
-
-    printf("X %d %d %d\n", botx, width/2, x);
-    printf("X %d %d\n", x_start, x_end);
-    printf("Y %d %d\n", y_start, y_end);
-
-    for(int i = y_start; i < y_end; i++)
-    {
-        for(int j = x_start; j < x_end; j++)
-        {
-            map[i][j] = 2;
-        }
-    }
-}
-
-void printMap(uint8_t map[FIELD_DIMENSION][FIELD_DIMENSION])
-{
-    uchar data[FIELD_DIMENSION*FIELD_DIMENSION*3];
-    Mat image;
-
-    uint m=0;
-
-    for(int y=0; y<FIELD_DIMENSION; y++)
-    {
-        for(int x=0; x<FIELD_DIMENSION; x++)
-        {
-            if (map[y][x] == 0)
-            {
-                data[m++] = 255; data[m++] = 255; data[m++] = 255;
-                
-            }   
-            else if (map[y][x] == 1)
-            {
-                data[m++] = 255; data[m++] = 0; data[m++] = 0; 
-            }
-            else if (map[y][x] == 2)
-            {
-                data[m++] = 0; data[m++] = 0; data[m++] = 0; 
-            }
-                
-        }
-    }
-
-    image =  Mat(300,300, CV_8UC3, data);
-    imwrite("/home/pi/map.jpg", image);
-}
-
+/*****************************************************************************************************
+                                    Location Algorithm
+******************************************************************************************************/
 Point location(float realHeight, Rect object)
 {
-    float x, y, diagnol, angle, angle_y;
+    float x, y, diagnol, angle;
     
-
+    //diagnol = (FOCAL_LENGTH * realWidth * FRAME_WIDTH) / (object.width * SENSOR_WIDTH);
     diagnol = (FOCAL_LENGTH * realHeight * FRAME_HEIGHT) / (object.height * SENSOR_HEIGHT);
-    angle = ((object.x + object.width / 2) - (320/2)) * ANGLE_PER_PIXEL_X;
-    angle_y = ((object.y + object.height / 2) - (200/2)) * ANGLE_PER_PIXEL_Y;
+    angle = (((object.x + object.width / 2) - (FRAME_WIDTH/2)) * ANGLE_PER_PIXEL_X) + angle_offset;
 
-    //printf("%f\n", angle_y);
-
-    x = diagnol * sin(angle * PI / 180);
-    y = diagnol * cos(angle * PI / 180);
+    x = diagnol * sin(angle * PI / 180) * direction_y;
+    y = (diagnol * cos(angle * PI / 180)) * direction_y;
 
     return Point(x,y);
 }
 
+Point destinationLocation(float realWidth, Rect object)
+{
+    float x, y, diagnol, angle;
+    
+    diagnol = (FOCAL_LENGTH * realWidth * FRAME_WIDTH) / (object.width * SENSOR_WIDTH);
+    angle = (((object.x + object.width / 2) - (FRAME_WIDTH/2)) * ANGLE_PER_PIXEL_X) + angle_offset;
 
+    x = diagnol * sin(angle * PI / 180) * direction_y;
+    y = (diagnol * cos(angle * PI / 180)) * direction_y;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return Point(x,y);
+}
 
 
 int distance(){
@@ -376,6 +629,25 @@ int distance(){
     return distance;
 }
 
+Point mouse(){
+    FILE* fp;
+    char readbuf[10];
+    int distance;
+
+    fp = fopen(MOUSE, "r");
+    fgets(readbuf, 10, fp);
+    fclose(fp);
+
+    char *pch;
+
+    pch = strtok(readbuf," ");
+    int x = atoi(pch);
+    pch = strtok (NULL, " ");
+    int y = atoi(pch);
+    
+    return Point(x - mouse_x, y - mouse_y);
+}
+
 void serial(char input)
 {
     FILE* fp;
@@ -384,19 +656,32 @@ void serial(char input)
     fclose(fp);
 }
 
+int serialR()
+{   
+    char readbuf[10];
+    int value;
 
+    FILE* fp;
+    fp = fopen(OUTPUT, "r");
+    fputs(readbuf, fp);
+    fclose(fp);
 
+    value = atoi(readbuf);
 
-
+    return value;
+}
 
 
 Mat getImage()
 {
-   
+    Mat imageRGB, imageHSV;
+    system("sudo python /home/pi/pic.py");
+    imageRGB = imread("/home/pi/image.jpg", CV_LOAD_IMAGE_COLOR);
 
-    return renderBA81(renderflags,rwidth,rheight,numPixels,pixels);
+    cvtColor (imageRGB,imageHSV,CV_BGR2HSV);
+    
+    return imageHSV;
 }
-
 
 void mouseEvent(int evt, int x, int y, int flags, void* param) 
 {                    

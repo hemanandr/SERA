@@ -65,8 +65,8 @@ int main(int argc, char * argv[])
 {
     bool fr;
     bool grip;
-
-    int my;
+    fr = getObject();
+    /*int my;
     serial('w');
     do
     {
@@ -95,8 +95,9 @@ int main(int argc, char * argv[])
     {
         grip = gripObject();
     }
-
+*/
     return 0;
+
 }
 
 bool gripObject()
@@ -382,7 +383,7 @@ bool getObject()
 /*****************************************************************************************************
                                 Check for Collection Point
 ******************************************************************************************************/
-if(1)
+if(0)
 {  
     findContours( white.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
     
@@ -552,7 +553,7 @@ if(0)
 
     #if 1
     imwrite("/home/pi/RGB.jpg", imageRGB);
-    imwrite("/home/pi/HSV.jpg", imageHSV);
+    //imwrite("/home/pi/HSV.jpg", imageHSV);
     imwrite("/home/pi/White.jpg", white);
     imwrite("/home/pi/Blue.jpg", blue);
     imwrite("/home/pi/DBlue.jpg", dblue);
