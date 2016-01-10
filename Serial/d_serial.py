@@ -41,18 +41,17 @@ while 1:
 	if input:
 #		print input;
 		try:	
-			ser.write(input[0]);
+			ser.write(input);
 			time.sleep(0.1);
 		except serial.serialutil.SerialException as err:
 			ser = Connect();
-			ser.write(input[0]);
+			ser.write(input);
 	os.close(pipe);
-
 	
 	arduino = ser.readline();
 
 	if arduino:
-		print arduino;
+#		print arduino;
 		try:
 			pipe = os.open(output, os.O_WRONLY | os.O_NONBLOCK);
 			os.write(pipe, arduino);

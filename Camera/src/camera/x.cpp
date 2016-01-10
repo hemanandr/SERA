@@ -69,26 +69,49 @@ void serial(string input)
 
 int main(int argc, char * argv[])
 {
-    serial("v.150");
-    serial("c.100");
+        serial("c.180.");
+        angle_offset = -90;
+        getObject();
 
-    /*angle_offset = -90; serial("c.180."); getObject();
-    angle_offset = -45; serial("c.140."); getObject();
-    angle_offset = 0; serial("c.100."); getObject();
-    angle_offset = 45; serial("c.60."); getObject();
-    angle_offset = 90; serial("c.20.");  getObject();
+        serial("c.140.");
+        angle_offset = -45;
+        getObject();
 
-    serial("rr");
-    direction_y = -1;
+        serial("c.100.");
+        angle_offset = 0;
+        getObject();
 
-    angle_offset = -90; serial("c.180."); getObject();
-    angle_offset = -45; serial("c.140."); getObject();
-    angle_offset = 0; serial("c.100."); getObject();
-    angle_offset = 45; serial("c.60."); getObject();
-    angle_offset = 90; serial("c.20.");  getObject();
-    */
+        serial("c.60.");
+        angle_offset = 45;
+        getObject();
 
-    bool grip = gripObject();
+        serial("c.20.");
+        angle_offset = 90;
+        getObject();
+
+        serial("rr");
+        direction_y = -1;
+
+         serial("c.180.");
+        angle_offset = -90;
+        getObject();
+
+        serial("c.140.");
+        angle_offset = -45;
+        getObject();
+
+        serial("c.100.");
+        angle_offset = 0;
+        getObject();
+
+        serial("c.60.");
+        angle_offset = 45;
+        getObject();
+
+        serial("c.20.");
+        angle_offset = 90;
+        getObject();
+    
 
     //bool fr;
     //bool grip;
@@ -146,22 +169,21 @@ bool gripObject()
 
     imageHSV = getImage();
     cvtColor(imageHSV,imageRGB,CV_HSV2BGR);
+   
+
     inRange(imageHSV, Scalar(25,230,90), Scalar(40,255,255),yellow);
     inRange(imageHSV, Scalar(60,140,50), Scalar(100,255,200),green);
     inRange(imageHSV, Scalar(150,150,90), Scalar(180,240,255),red);
         
-    Mat combined;
+    Mat combined;// = yellow.clone();
     bitwise_or(red, yellow, combined);
     //bitwise_or(combined, green, combined);
     
-    imwrite("/home/pi/Yellow.jpg", yellow);
-    imwrite("/home/pi/Red.jpg", red);
-    imwrite("/home/pi/Combined.jpg", combined);
-    imwrite("/home/pi/RGB.jpg", imageRGB);
 
     {  
         findContours( combined.clone(), objectContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
         drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
 
         largest_area = 0;
         largest_contour_index = -1;
@@ -175,6 +197,7 @@ bool gripObject()
           }
         }
 
+/*
         if(largest_contour_index != -1)
         {
             drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,255), 1, 8);
@@ -182,83 +205,60 @@ bool gripObject()
             Point collection = destinationLocation(5,object);
 
             printf("Object : %d %d\n", collection.x, collection.y);
-            int min = -1, max = 1;
-            
-            if(collection.y > 50){
-                min = -2;
-                max = 2;
-            }else{
-                min = -2;
-                max = 0;
-            }
-
-            if(collection.x > min & collection.x < max){
-                int dis;
-
-                if(collection.y < 45){
-                    serial("i");
-                    printf("%d\n", serialR());
-                    serial("q");
-                    printf("%d\n", serialR());
-                    return true;
-                }
+            if(collection.x > -4  & collection.x < 5){
+                int my, mx;
                 
-                serial("w");
+                if(collection.y < 40)
+                    serial("i");
+
+                if(collection.y < 20)
+                {
+
+                    serial('s');
+                    usleep(5000);
+                    serial('p');
+                    usleep(5000);
+                    serial('m');
+                    while(1){
+                        bool x = dropObject;
+                    }
+                }
+
+                serial('w');
+                usleep(5000);
+                
                 do
                 {
-                    dis = mouse().y;
-                    printf("Dest:%d %d\n", collection.y, dis);
-                }while(dis < abs(collection.y) - 25);
+                    my = mouse().y;
+                    printf("Mouse Y : %d Offset : %d\n", my, mouse_y );
+                }while(my < abs(collection.y) - 50);
+                serial('s');
 
-                serial("s");
+                mouse_y = my;
 
-                mouse_y += dis;
-                serial("v.170");
                 return gripObject();
             }
             else{
-                if(collection.x <= min){
-                    int temp = collection.x / 5;
-                    if(collection.x > -4){
-                        turnL();
-                    }
-                    else{
-                        for(int i = 0; i < abs(temp); i++)
-                        {
-                            turnL();   
-                        }
-                        usleep(5000);
-                    }   
+                if(collection.x < 0){
+                    turnL();   
                 }
-                else if(collection.x >= max){
-                    int temp = collection.x / 5;
-                    if(collection.x < 4){
-                        turnR();
-                    }
-                    else{
-                        for(int i = 0; i < abs(temp); i++)
-                        {
-                            turnR();   
-                        }
-                        usleep(5000);
-                    }
+                else if(collection.x > 0){
                     turnR();     
                 }
                 return gripObject();   
             }
 
         }
-
+*/
     } 
 
 
 
-    #if 1
+    #if 0
     imwrite("/home/pi/RGB.jpg", imageRGB);
     imwrite("/home/pi/HSV.jpg", imageHSV);
     imwrite("/home/pi/Yellow.jpg", yellow);
     imwrite("/home/pi/Green.jpg", green);
-    imwrite("/home/pi/Combined.jpg", combined);
     #endif
 
     return free;
@@ -361,11 +361,11 @@ bool dropObject()
 
 
 void turnR(){
-        serial("m");
+        serial("t");
 }
 
 void turnL(){
-        serial("n");
+        serial("r");
 }
 
 void getObject()
@@ -397,8 +397,6 @@ void getObject()
     blue.release();
     
     largest_area = 0;
-    largest_contour_index = -1;
-
     for( int i = 0; i< contours.size(); i++ )  
     {
        double a = contourArea( contours[i], false);
@@ -409,8 +407,8 @@ void getObject()
     }
     
     //Draw the Field Contour
-    if(largest_contour_index != -1)
-        fieldContour = contours[largest_contour_index];
+    //drawContours( imageRGB, contours, largest_contour_index, Scalar(0,255,0), 3, 8);
+    fieldContour = contours[largest_contour_index];
 
 /*****************************************************************************************************
                                 Check for Collection Point
@@ -669,6 +667,8 @@ Point mouse(){
     return Point(x - mouse_x, y - mouse_y);
 }
 
+
+
 int serialR()
 {   
     char readbuf[10];
@@ -688,7 +688,9 @@ int serialR()
 Mat getImage()
 {
     Mat imageRGB, imageHSV;
+    system("sudo rm /home/pi/image.jpg");
     system("sudo python /home/pi/pic.py");
+
     imageRGB = imread("/home/pi/image.jpg", CV_LOAD_IMAGE_COLOR);
     cvtColor (imageRGB,imageHSV,CV_BGR2HSV);
     
