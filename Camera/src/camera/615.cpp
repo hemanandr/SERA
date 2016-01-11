@@ -60,120 +60,70 @@ int mouse_y = 0;
 int direction_x = 0;
 int direction_y = 1;
 
-void line();
-void newPosition();
-void searchDrop();
-void searchPick();
-
-void line()
-{   
-    serial("w");
-    serialR();
-    
-    int dis;
-
-    ResetMouse();
-
-    do
-    {
-        serial("x");
-        dis = mouse().y;
-        printf("%d\n", abs(dis));
-    }while(abs(dis) < 20);
-
-    serial("s");
-
-    ResetMouse();
-    
-    serial("r");
-    serialR();
-    serial("r");
-    serialR();
-    serial("r");
-    serialR();
-    serial("r");
-    serialR();
-}
-
-void newPosition()
-{
-    bool free;
-
-    do
-    {
-        serial("r");
-        serialR();
-        free = getObject();
-    }while(!free);
-
-    line();
-}
-
-void searchPick()
-{
-    serial("v.150");
-    serial("c.100");
-    
-    bool picked = false;
-    int count = 0;
-    
-    printf("Picking Object\n");
-
-    do
-    {
-        picked = pickObject();
-        serial("t");
-        serialR();
-        count++;
-
-        if(count > 10)
-        {
-            newPosition();
-            return searchPick();
-        }
-    }while(!picked);
-
-    return;
-}
-
-void searchDrop()
-{
-    serial("v.150");
-    serial("c.100");
-    
-    bool dropped = false;        
-    int count = 0;
- 
-    do
-    {
-        printf("Dropping Object\n");
-        dropped = dropObject();
-        serial("t");
-        serialR();
-        count++;
-
-        if(count > 10)
-        {
-            newPosition();
-            return searchDrop();
-        }
-    }while(!dropped); 
-
-    return;
-}
-
 int main(int argc, char * argv[])
 {
     int count = 0;
 
+    #if 1
+    serial("v.150");
+    serial("c.100");
+    //ResetMouse();
+    #endif
+    
+    bool picked;
+    bool dropped;        
+    
+    bool free = getObject();
+
+    if(free)
+        printf("Free\n");
+    else   
+        printf("Not Free\n");
+
+    return 0;
+
     while(1)
-    {   
-        searchPick();
-        searchDrop();
+    {
+        do
+        {
+            serial("t");
+            serialR();
+            picked = pickObject();
+        }while(!picked);
+
+        do
+        {
+            serial("t");
+            serialR();
+            dropped = dropObject();
+        }while(!dropped);
+
         count++;
     }
 
-    return 0;
+
+    #if 0
+    angle_offset = -90; serial("c.180."); getObject();
+    angle_offset = -45; serial("c.140."); getObject();
+    angle_offset = 0; serial("c.100."); getObject();
+    angle_offset = 45; serial("c.60."); getObject();
+    angle_offset = 90; serial("c.20.");  getObject();
+
+    serial("rr");
+    direction_y = -1;
+
+    angle_offset = -90; serial("c.180."); getObject();
+    angle_offset = -45; serial("c.140."); getObject();
+    angle_offset = 0; serial("c.100."); getObject();
+    angle_offset = 45; serial("c.60."); getObject();
+    angle_offset = 90; serial("c.20.");  getObject();
+    #endif
+
+    //getObject();
+
+    //moveTo(100,100);
+    //moveTo(-100,-100);
+    //return 0;
 }
 
 /*****************************************************************************************************
@@ -198,7 +148,7 @@ bool pickObject()
         
     Mat combined;
     bitwise_or(red, yellow, combined);
-    //bitwise_or(combined, green, combined);
+    bitwise_or(combined, green, combined);
     
     {  
         findContours( combined.clone(), objectContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
@@ -223,11 +173,11 @@ bool pickObject()
             int min, max;
             
             if(collection.y > 45){
-                min = -3;
-                max = 1;
-            }else{
                 min = -2;
-                max = 0;
+                max = 2;
+            }else{
+                min = -1;
+                max = 1;
             }
 
             printf("Object : %d %d\n", collection.x, collection.y);
@@ -277,7 +227,7 @@ bool pickObject()
                 }
                 else if(collection.x >= max){
                     int temp = collection.x / 5;
-                    if(collection.x < 5){
+                    if(collection.x < 3){
                         turnR();
                     }
                     else{
@@ -295,7 +245,7 @@ bool pickObject()
 
     } 
 
-    #if 1
+    #if 0
     imwrite("/home/pi/RGB.jpg", imageRGB);
     imwrite("/home/pi/HSV.jpg", imageHSV);
     imwrite("/home/pi/Yellow.jpg", yellow);
@@ -332,8 +282,7 @@ bool dropObject()
     cvtColor(imageHSV,imageRGB,CV_HSV2BGR);
    
     inRange(imageHSV, Scalar(15,0,165), Scalar(100,25,255),white);
-    imwrite("/home/pi/White.jpg", white);
-      
+     
     {  
         findContours( white.clone(), objectContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
         drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
@@ -431,10 +380,11 @@ bool dropObject()
 
 
 
-    #if 1
+    #if 0
     imwrite("/home/pi/RGB.jpg", imageRGB);
     imwrite("/home/pi/HSV.jpg", imageHSV);
-    imwrite("/home/pi/Yellow.jpg", white);
+    imwrite("/home/pi/Yellow.jpg", yellow);
+    imwrite("/home/pi/Green.jpg", green);
     #endif
 
     imageRGB.release();
@@ -452,11 +402,9 @@ bool getObject()
     bool free = true;
 
     Mat imageHSV, imageRGB;
-    Mat white, blue, black, gray;
+    Mat white, blue, red, yellow, black, green, gray;
     Mat contourOutput;
     
-    Mat yellow, red, green;
-
     vector<vector<Point> > contours;
     vector<vector<Point> > objectContours;
     vector<Point> fieldContour;
@@ -474,22 +422,6 @@ bool getObject()
     inRange(imageHSV, Scalar(150,150,90), Scalar(180,240,255),red);
     inRange(imageHSV, Scalar(0,0,0), Scalar(180,190,90),black);
     inRange(imageHSV, Scalar(80,20,150), Scalar(120,100,255),gray);
-
-    if 1
-    namedWindow( "RGB", CV_WINDOW_NORMAL );
-    namedWindow( "HSV", CV_WINDOW_NORMAL );
-
-    namedWindow( "1", CV_WINDOW_NORMAL );
-    namedWindow( "2", CV_WINDOW_NORMAL );
-
-    imshow("HSV", imageHSV);
-    imshow("RGB", imageRGB);
-    imshow("1", red);
-    imshow("2", yellow);
-
-    setMouseCallback("RGB", mouseEvent, &imageHSV);
-    waitKey(0);
-    #endif
 
     //Detect the game field
     contourOutput = blue.clone();
@@ -511,6 +443,121 @@ bool getObject()
     if(largest_contour_index != -1)
         fieldContour = contours[largest_contour_index];
 
+/*****************************************************************************************************
+                                Check for Collection Point
+******************************************************************************************************/
+#if 0
+{  
+    findContours( white.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+    white.release();
+    
+    //Check if detected contour is within the Field Contour
+    for(int i = 0; i < contours.size(); i++)
+    {
+        for(int j = 0; j < contours[i].size(); j++)
+        {
+            double test = pointPolygonTest(fieldContour, contours[i][j], true);  
+            if(test > -5)
+            {
+                if(contourArea( contours[i], false) > 15.0){
+                    objectContours.push_back(contours[i]);
+                    break;
+                }
+            }
+        }
+    }
+    
+    largest_area = 0;
+    largest_contour_index = -1;
+
+    for( int i = 0; i< objectContours.size(); i++ )  
+    {
+       double a = contourArea( objectContours[i], false);
+       if(a > largest_area){
+             largest_area = a;
+             largest_contour_index = i;
+      }
+    }
+    
+    if(largest_contour_index != -1)
+    {
+        Rect object = boundingRect(objectContours[largest_contour_index]);
+        Point collection = destinationLocation(30,object);
+        printf("Destination : %d %d\n", collection.x, collection.y);
+        destination.x = collection.x;
+        destination.y = collection.y;
+    }
+}    
+#endif
+/*****************************************************************************************************
+                                            Object Detection
+******************************************************************************************************/
+#if 0
+{
+    Mat combined;
+    bitwise_or(green, yellow, combined);
+    bitwise_or(yellow, red, combined);
+    
+    red.release();
+    yellow.release();
+    green.release();
+    
+    while(1)
+    {  
+        objectContours.clear();
+        findContours( combined.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
+        
+        //Check if detected contour is within the Field Contour
+        for(int i = 0; i < contours.size(); i++)
+        {
+            for(int j = 0; j < contours[i].size(); j++)
+            {
+                double test = pointPolygonTest(fieldContour, contours[i][j], true);  
+                if(test > -5)
+                {
+                    if(contourArea( contours[i], false) > 15.0){
+                        objectContours.push_back(contours[i]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        //drawContours( imageRGB, objectContours, -1, Scalar(0,0,255), 1, 8);
+
+        largest_area = 0;
+        largest_contour_index = -1;
+
+        for( int i = 0; i< objectContours.size(); i++ )  
+        {
+           double a = contourArea( objectContours[i], false);
+           if(a > largest_area){
+                 largest_area = a;
+                 largest_contour_index = i;
+          }
+        }
+        
+        if(largest_contour_index != -1)
+        {
+            //drawContours(combined, objectContours, largest_contour_index, Scalar(0,0,0), -1, 8);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
+
+            if(object.x < 50| object.x > 975)
+                continue;
+
+            Point collection = location(20,object);
+            objects.push_back(Point(collection.x, collection.y));
+            printf("Object : %d %d\n", collection.x, collection.y);
+        }
+        else
+        {
+            break;
+        }
+    }  
+
+    combined.release(); 
+} 
+#endif
 
 /*****************************************************************************************************
                                         Obstacle Detection
@@ -575,11 +622,13 @@ bool getObject()
 } 
 #endif
 
-    #if 0
+    #if 1
     imwrite("/home/pi/RGB.jpg", imageRGB);
     imwrite("/home/pi/HSV.jpg", imageHSV);
     imwrite("/home/pi/White.jpg", white);
     imwrite("/home/pi/Blue.jpg", blue);
+    imwrite("/home/pi/Red.jpg", red);
+    imwrite("/home/pi/Yellow.jpg", yellow);
     imwrite("/home/pi/Black.jpg", black);
     imwrite("/home/pi/Gray.jpg", gray);
     #endif
@@ -587,6 +636,9 @@ bool getObject()
     imageHSV.release();
     imageRGB.release();
     blue.release();
+    yellow.release();
+    green.release();
+    red.release();
     black.release();
     gray.release();
     contourOutput.release();
