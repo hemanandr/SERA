@@ -39,7 +39,7 @@ while 1:
 			raise err;
 	
 	if input:
-#		print input;
+		print input;
 		try:	
 			ser.write(input);
 			time.sleep(0.1);
@@ -47,9 +47,14 @@ while 1:
 			ser = Connect();
 			ser.write(input);
 	os.close(pipe);
-	
-	arduino = ser.readline();
 
+	arduion = "";
+	
+	try:
+		arduino = ser.read(1);
+	except serial.serialutil.SerialException as err:
+		pass;
+	
 	if arduino:
 		print arduino;
 		try:
