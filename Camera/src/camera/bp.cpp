@@ -28,7 +28,8 @@ using namespace std;
 #define OUTPUT              "/home/pi/SERA/Pipes/p_output"
 #define MOUSE               "/home/pi/SERA/Pipes/p_mouse"
 
-#define OBJECT_COUNT        3
+#define DEBUG
+
 /*****************************************************************************************************
                                             Function Definitions
 ******************************************************************************************************/
@@ -74,127 +75,169 @@ int mouse_y = 0;
 int direction_x = 0;
 int direction_y = 1;
 
-/*****************************************************************************************************
-                                        Main Function
-******************************************************************************************************/
 int main(int argc, char * argv[])
-{   
-    int count = 0;
-
-    while(1)
-    {   
-        searchPick();
-        searchDrop();
-        count++;
-        printf("Object Count : %d\n", count);
-        if(count == OBJECT_COUNT)
-        {
-            return 0;
-        }
-    }
-
-    return 0;
-}
-
-/*****************************************************************************************************
-                                        Search for picking object
-Searches for the object in front of the robot and turns at 45 degree angles to find an object after
-10 turns finds a new poisition before searching for the object again
-******************************************************************************************************/
-void searchPick()
-{
-    /****************************************************************
-    Variable Declarations
-    ****************************************************************/
-    bool picked = picked;
-    int count = 0;
-    
-    /****************************************************************
-    Centralize the camera and set its view angle to 150 degree
-    ****************************************************************/
+{   serial("v.170.");
     serial("c.100.");
-    serial("v.150.");
     usleep(500000);
 
-    /****************************************************************
-    Rotate until object found and picked
-    ****************************************************************/
-    printf("Searching for Object\n");
-    do
-    {
-        //Try to pick up object 
-        picked = pickObject();
-
-        if(!picked)
-        {
-            //Turns 45 degree to the left if object not found
-            printf("Object not found turning left\n");
-            serial("r");
-            usleep(500000);
-        
-            count++;
-
-            //If number of turns exceed 10 go to new position
-            if(count > 10)
-            {
-                count = 0;
-                newPosition();
-                return searchPick();
-            }  
-        }
-    }while(!picked);
-
-    return;
-}
-
-/*****************************************************************************************************
-                                            Search for dropping object
-******************************************************************************************************/
-void searchDrop()
-{
     int dis;
+    bool picked;
+    bool dropped;
     
-    serial("v.170.");
-    serial("c.100.");
+    do{
+        picked = pickObject();
+        printf("%d\n", picked);
+    }while(!picked);    
+    printf("Picked Up\n");
+    
+    serial("r");
     usleep(500000);
+    serial("r");
+    usleep(500000);
+    ResetMouse();
 
-    bool dropped = false;        
-    int count = 0;
- 
-    printf("Dropping Object\n");
-    
+    printf("Drop Started\n");
     do
     {
         dropped = dropObject();
-        printf("Turning Right\n");
-        
-        serial("t");
-        usleep(500000);
-        usleep(500000);
+    }while(!dropped);
 
-        count++;
 
-        if(count > 10)
-        {
-            newPosition();
-            return searchDrop();
-        }
-    }while(!dropped); 
+    serial("x");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 20);
 
-    printf("Object Dropped\n");
+    serial("r");
+    usleep(500000);
+    serial("r");
+    usleep(500000);
+    ResetMouse();
+
+    serial("w");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 100);
+    serial("s");
+
+    ResetMouse();
+
+    do{
+        picked = pickObject();
+        printf("%d\n", picked);
+    }while(!picked);    
+    printf("Picked Up\n");
+
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    ResetMouse();
     
+    printf("Drop Started\n");
+    do
+    {
+        dropped = dropObject();
+    }while(!dropped);
+
+
     ResetMouse();
     do
     {
         serial("x");
         dis = mouse().y;
         printf("%d\n", abs(dis));
-    }while(abs(dis) < 40);
+    }while(abs(dis) < 20);
+
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    ResetMouse();
+
+    serial("w");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 100);
+    serial("s");
+
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    ResetMouse();
+
+    serial("w");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 100);
     serial("s");
 
     ResetMouse();
 
-    return;
+    do{
+        picked = pickObject();
+        printf("%d\n", picked);
+    }while(!picked);    
+    printf("Picked Up\n");
+    
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    serial("t");
+    usleep(500000);
+    ResetMouse();
+
+    serial("w");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 120);
+    serial("s");
+
+    serial("r");
+    usleep(500000);
+    serial("r");
+    usleep(500000);
+    ResetMouse();
+
+    printf("Drop Started\n");
+    do
+    {
+        dropped = dropObject();
+    }while(!dropped);
+
+
+    int count = 0;
+    while(1)
+    {   
+        searchPick();
+        searchDrop();
+        count++;
+        printf("Object Count : %d\n", count);
+        if(count == 2)
+        {
+            return 0;
+        }
+    }
+
+    return 0;
 }
 
 /*****************************************************************************************************
@@ -251,6 +294,90 @@ void newPosition()
     }while(!free);
 
     reachLine();
+}
+
+/*****************************************************************************************************
+                                            Search for picking object
+******************************************************************************************************/
+void searchPick()
+{
+    serial("c.100.");
+    serial("v.150.");
+    usleep(500000);
+
+    bool picked = false;
+    int count = 0;
+    
+    printf("Picking Object\n");
+
+    do
+    {
+        picked = pickObject();
+        printf("Turning Right\n");
+        serial("t");
+        usleep(500000);
+        usleep(500000);
+        
+        count++;
+
+        if(count > 10)
+        {
+            newPosition();
+            return searchPick();
+        }
+    }while(!picked);
+    printf("Object Picked\n");
+    return;
+}
+
+/*****************************************************************************************************
+                                            Search for dropping object
+******************************************************************************************************/
+void searchDrop()
+{
+    int dis;
+    
+    serial("v.170.");
+    serial("c.100.");
+    usleep(500000);
+
+    bool dropped = false;        
+    int count = 0;
+ 
+    printf("Dropping Object\n");
+    
+    do
+    {
+        dropped = dropObject();
+        printf("Turning Right\n");
+        
+        serial("t");
+        usleep(500000);
+        usleep(500000);
+
+        count++;
+
+        if(count > 10)
+        {
+            newPosition();
+            return searchDrop();
+        }
+    }while(!dropped); 
+
+    printf("Object Dropped\n");
+    
+    ResetMouse();
+    do
+    {
+        serial("x");
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 40);
+    serial("s");
+
+    ResetMouse();
+
+    return;
 }
 
 /*****************************************************************************************************
@@ -318,11 +445,11 @@ bool pickObject()
         if(largest_contour_index != -1)
         {
             //Find an approximate rectangle for the object
-            Rect objectRect = boundingRect(objectContours[largest_contour_index]);
+            Rect object = boundingRect(objectContours[largest_contour_index]);
             
             //Find the x,y coordinate of the obstacle from the camera. 
             //The width is used so the object doesnt have to be fully inside the frame vertically
-            Point object = destinationLocation(5,objectRect);
+            Point object = destinationLocation(5,object);
             printf("Object : %d %d\n", object.x, object.y);
 
             //The minimum and maximum values for centralization for different distance range
@@ -382,7 +509,7 @@ bool pickObject()
                     usleep(5000);
                 }
                 else if(object.x >= max){
-                    int steps = object.x / 5;
+                    int steps = collection.x / 5;
 
                     for(int i = 0; i <= abs(steps); i++)
                     {
