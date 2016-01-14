@@ -25,8 +25,8 @@ def getMouseEvent():
 
 while( 1 ):
   	dis = getMouseEvent();
-	point_x = point_x + (0.0287 * dis.x);
-	point_y = point_y + (0.0287 * dis.y);
+	point_x = point_x + (0.042 * dis.x);
+	point_y = point_y + (0.042 * dis.y);
 	tx = tx + dis.x;
 	ty = ty + dis.y;
 #	print ("%d  %d" % (tx, ty));

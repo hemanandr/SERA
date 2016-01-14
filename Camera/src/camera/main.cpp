@@ -225,11 +225,12 @@ void searchDrop()
     /****************************************************************
     Move the robot back by 30 cm and return
     ****************************************************************/
+    ResetMouse();
     serial("x");
-    
     do
     {
         dis = mouse().y;
+        printf("Dest: 20, Dis:%d\n", abs(dis));
     }while(abs(dis) < 30);
     serial("s");
 
@@ -296,11 +297,12 @@ void reachLine()
     Reverse thre robot by 20 cm and turn around to look inside the 
     field
     ****************************************************************/
-    serial("x");
+    ResetMouse();
     do
     {
+        serial("x");
         dis = mouse().y;
-        printf("%d\n", abs(dis));
+        printf("Dest: 20, Dis:%d\n", abs(dis));
     }while(abs(dis) < 20);
     serial("s");
 
@@ -331,7 +333,7 @@ bool pickObject()
     printf("Function : Pick object\n");
 
     //Sets the camera viewing angle to 150 degrees ensuring view of the object for 300 cm
-    serial("v.150.");
+    //serial("v.150.");
 
     /****************************************************************
     Variable Declarations
@@ -402,7 +404,7 @@ bool pickObject()
             
             //Check if object is within range specified by min and max else adjust
             if(object.x > min & object.x < max){
-                int dis;
+                int dis, clearence;
 
                 //If object is within the distance range of the IR Sensor Initiaite Pick up
                 if(object.y < 45){
@@ -418,8 +420,16 @@ bool pickObject()
                     serialR();
                     printf("Object Picked\n");
 
+                    ResetMouse();
+
                     return true;
                 }
+
+                //If object very far away set higher clearence
+                if(object.y > 150)
+                    clearence = 80;
+                else
+                    clearence = 35;
 
                 //If object not within range move to a distance 35 cm away from the object
                 serial("w");
@@ -427,7 +437,7 @@ bool pickObject()
                 {
                     dis = mouse().y;
                     printf("Dest:%d %d\n", object.y, dis);
-                }while(dis < abs(object.y) - 35);
+                }while(dis < abs(object.y) - clearence);
                 serial("s");
                 ResetMouse();
 
@@ -494,7 +504,7 @@ bool dropObject()
     printf("Function : Drop object\n");
 
     //Sets the camera viewing angle to 150 degrees well within the height of the destination
-    serial("v.150.");
+    //serial("v.150.");
 
     /****************************************************************
     Variable Declarations
@@ -551,7 +561,7 @@ bool dropObject()
        
         //Check if detected object is within the field
         //TODO : Time consuming due to large numbers of contours. Filter contours based on area before checking for points inside the field 
-        for(int i = 0; i < contours.size(); i++)
+        /*for(int i = 0; i < contours.size(); i++)
         {
             for(int j = 0; j < contours[i].size(); j++)
             {
@@ -564,11 +574,11 @@ bool dropObject()
                     }
                 }
             }
-        }
+        }*/
 
         //Improved faster algorithm 
         //TODO : To be tested
-        /*for(int i = 0; i < contours.size(); i++)
+        for(int i = 0; i < contours.size(); i++)
         {
             for(int j = 0; j < contours[i].size(); j++)
             {
@@ -583,7 +593,7 @@ bool dropObject()
                     }
                 }
             }
-        }*/ 
+        }
         
         //Find the largest among the object contours
         largest_area = 0;
@@ -650,7 +660,6 @@ bool dropObject()
                 printf("Gripper Initialized\n");
                 
                 ResetMouse();
-
                 return true;
             }
             else{
@@ -679,7 +688,7 @@ bool dropObject()
     } 
 
 
-    #if 0
+    #if 1
     imwrite("/home/pi/RGB.jpg", imageRGB);
     imwrite("/home/pi/HSV.jpg", imageHSV);
     imwrite("/home/pi/White.jpg", white);
@@ -806,7 +815,7 @@ bool getObject()
         
             //Check if detected object is within the field
             //TODO : Time consuming due to large numbers of contours. Filter contours based on area before checking for points inside the field
-            for(int i = 0; i < contours.size(); i++)
+            /*for(int i = 0; i < contours.size(); i++)
             {
                 for(int j = 0; j < contours[i].size(); j++)
                 {
@@ -820,11 +829,11 @@ bool getObject()
                         }
                     }
                 }
-            }
+            }*/
 
             //Improved faster algorithm 
             //TODO : To be tested
-            /*for(int i = 0; i < contours.size(); i++)
+            for(int i = 0; i < contours.size(); i++)
             {
                 for(int j = 0; j < contours[i].size(); j++)
                 {
@@ -840,7 +849,7 @@ bool getObject()
                     }
                     
                 }
-            }*/
+            }
 
             //Find the largest among the object contours
             largest_area = 0;
@@ -996,7 +1005,11 @@ Point mouse(){
 }
 
 void ResetMouse(){
+    
+    serial("x");
     Point m = mouse();
+    serial("s");
+
     mouse_x += m.x;
     mouse_y += m.y;
 }
