@@ -1,3 +1,29 @@
+/*****************************************************************************************************
+                            SERA 4.0 - Image Processing and Control
+Version: 2.0
+(c) 2016 Hemanand Ramasamy @ kodedevil
+
+www.kodedevil.wordpress.com
+
+Git : https://github.com/kodedevil/SERA
+
+This program makes use of other processes by communicating with them using named Pipes (FIFO). Hence
+forms an inseperable part with other codes in the same repository and depends on other process to 
+ensure its operation
+
+This program is the master control that uses:
+SERA/Mouse/mouse.py
+SERA/Serial/d_serial.py
+processes for its operations
+
+This program does image processing and decides actions based on it which is relied to the Ardunio Mega 
+Controller through serial communication which takes care of the low level access to the various
+components such as the motor and the gripper
+******************************************************************************************************/
+
+/*****************************************************************************************************
+                                        Header files
+******************************************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,6 +40,9 @@
 using namespace cv;
 using namespace std;
 
+/*****************************************************************************************************
+                                    Constant Definitions
+******************************************************************************************************/
 #define FOCAL_LENGTH        0.36
 #define FRAME_HEIGHT        768
 #define FRAME_WIDTH         1024
@@ -29,6 +58,8 @@ using namespace std;
 #define MOUSE               "/home/pi/SERA/Pipes/p_mouse"
 
 #define OBJECT_COUNT        3
+
+
 /*****************************************************************************************************
                                             Function Definitions
 ******************************************************************************************************/
@@ -64,10 +95,6 @@ void ResetMouse();
 /*****************************************************************************************************
                                     Global Variables Definitions
 ******************************************************************************************************/
-vector<Point> obstacles;
-vector<Point> objects;
-Point destination = Point(999,999);
-
 int angle_offset = 0;
 int mouse_x = 0;
 int mouse_y = 0;
@@ -137,7 +164,6 @@ void searchPick()
             //If number of turns exceed 10 go to new position
             if(count > 10)
             {
-                count = 0;
                 newPosition();
                 return searchPick();
             }  
@@ -148,48 +174,63 @@ void searchPick()
 }
 
 /*****************************************************************************************************
-                                            Search for dropping object
+                                    Search for dropping object
+Searches for the destination in front of the robot and turns at 45 degree angles to find an destination 
+after 10 turns finds a new poisition before searching for the destination
 ******************************************************************************************************/
 void searchDrop()
 {
-    int dis;
+    /****************************************************************
+    Variable Declarations
+    ****************************************************************/
+    int dis, count = 0;
+    bool dropped;        
     
+    /****************************************************************
+    Centralize the camera and set its view angle to 170 degree
+    ****************************************************************/
     serial("v.170.");
     serial("c.100.");
     usleep(500000);
 
-    bool dropped = false;        
-    int count = 0;
- 
-    printf("Dropping Object\n");
+    /****************************************************************
+    Rotate until destination found and object dropped
+    ****************************************************************/
+    printf("Searching for Destination\n");
     
     do
     {
+        //Try to drop object
         dropped = dropObject();
-        printf("Turning Right\n");
-        
-        serial("t");
-        usleep(500000);
-        usleep(500000);
 
-        count++;
-
-        if(count > 10)
+        if(!dropped)
         {
-            newPosition();
-            return searchDrop();
+            //Turns 45 degree to the left if destination not found
+            printf("Destination not found turning left\n");
+            serial("r");
+            usleep(500000);
+
+            count++;
+
+            //If number of turns exceed 10 go to new position
+            if(count > 10)
+            {
+                newPosition();
+                return searchDrop();
+            }
         }
+       
     }while(!dropped); 
 
-    printf("Object Dropped\n");
+    /****************************************************************
+    Move the robot back by 30 cm and return
+    ****************************************************************/
+    serial("x");
     
-    ResetMouse();
     do
     {
-        serial("x");
         dis = mouse().y;
-        printf("%d\n", abs(dis));
-    }while(abs(dis) < 40);
+    }while(abs(dis) < 30);
     serial("s");
 
     ResetMouse();
@@ -198,59 +239,83 @@ void searchDrop()
 }
 
 /*****************************************************************************************************
-                                            Reach Line
-******************************************************************************************************/
-void reachLine()
-{   
-    printf("Go to Line\n");
-
-    serial("w");
-    serialR();
-    
-    int dis;
-
-    ResetMouse();
-
-    do
-    {
-        serial("x");
-        dis = mouse().y;
-        printf("%d\n", abs(dis));
-    }while(abs(dis) < 20);
-
-    serial("s");
-
-    ResetMouse();
-    
-    serial("r");
-        usleep(500000);
-    serial("r");
-        usleep(500000);
-    serial("r");
-        usleep(500000);
-    serial("r");
-        usleep(500000);
-        usleep(500000);
-        usleep(500000);
-}
-
-/*****************************************************************************************************
-                                            Get to New Position
+                                        Get to New Position
+The robot tries to find out a direction with no obstacle on its path and reaches the line by travelling
+on that path giving a new position for the robot to search
 ******************************************************************************************************/
 void newPosition()
 {
-    bool free;
-
     printf("New Position\n");
 
+    /****************************************************************
+    Variable Declarations
+    ****************************************************************/
+    bool free;
+
+    /****************************************************************
+    Rotate until finding a new position and then proceed to the line
+    ****************************************************************/
     do
     {
-        serial("t");
-        usleep(500000);
         free = getObject();
+        if(!free)
+        {
+            serial("r");
+            usleep(500000);
+        }
     }while(!free);
 
     reachLine();
+
+    return;
+}
+
+/*****************************************************************************************************
+                                            Reach Line
+If there is no view of any objects of interest within the current position of the robot move the robot 
+to the line to search for object or destination
+******************************************************************************************************/
+void reachLine()
+{   
+    printf("Reach Line\n");
+
+    /****************************************************************
+    Variable Declarations
+    ****************************************************************/
+    int dis;
+
+    /****************************************************************
+    Move Straight Until line is detected which is signalled by the 
+    Arduino code after stopping at line
+    ****************************************************************/
+    serial("w");
+    serialR();
+    ResetMouse();
+
+    /****************************************************************
+    Reverse thre robot by 20 cm and turn around to look inside the 
+    field
+    ****************************************************************/
+    serial("x");
+    do
+    {
+        dis = mouse().y;
+        printf("%d\n", abs(dis));
+    }while(abs(dis) < 20);
+    serial("s");
+
+    serial("r");
+    usleep(500000);
+    serial("r");
+    usleep(500000);
+    serial("r");
+    usleep(500000);
+    serial("r");
+    usleep(500000);
+    
+    ResetMouse();
+
+    return;
 }
 
 /*****************************************************************************************************
@@ -938,20 +1003,32 @@ void ResetMouse(){
 
 /*****************************************************************************************************
                                             Serial Navigation
+Uses the serial commands for the robot navigation.
+TODO: Unwanted since functions hold only one statement and hence should be incoporated in code itself
 ******************************************************************************************************/
 void turnR(){
     serial("m");
+    return;
 }
 
 void turnL(){
     serial("n");
+    return;
 }
 
-/*void moveTo(int x, int y)
+/****************************************************************
+The moveTo function moves the robot to coordinates specified by
+travelling in the X-axis followed by the Y-axis. Doesn't check
+for clear path
+****************************************************************/
+void moveTo(int x, int y)
 {
-    //ResetMouse();
     printf("Move To %d %d\n", x, y);
     int dis, temp;
+    
+    /****************************************************************
+    Turn the robot towards the object
+    ****************************************************************/
     if(direction_y == 1)
     {
         if(x < 0)
@@ -987,18 +1064,21 @@ void turnL(){
         }
     }
 
-    while(serialR() != 1){}
-
+    /****************************************************************
+    Travel the x-axis distance to the object
+    ****************************************************************/
+    serial("w");
     do
     {
-        serial("w");
         dis = mouse().y;
-        printf("%d %d\n", dis, x );
     }while(dis < abs(x));
-
     serial("s");
     ResetMouse();
 
+    /****************************************************************
+    Turn the robot towards the object
+    TODO : Change the direction values 
+    ****************************************************************/
     if(y > 0)
     {
         if(direction_x == 1)
@@ -1019,20 +1099,19 @@ void turnL(){
         }
     }
 
-    while(serialR() != 1){}
-
+    /****************************************************************
+    Travel the y-axis distance to the object
+    ****************************************************************/
+    serial("w");
     do
     {
-        serial("w");
         dis = mouse().y;
-        printf("%d %d\n", dis, x );
     }while(dis < abs(y));
-
     serial("s");
     ResetMouse();
 
+    return;
 }
-*/
 
 /*****************************************************************************************************
                             Image Acquisition and Calibration Services
@@ -1040,7 +1119,7 @@ void turnL(){
 Mat getImage()
 {
     Mat imageRGB, imageHSV;
-    system("sudo python /home/pi/pic.py");
+    system("sudo python /home/pi/SERA/Camera/pic.py");
     imageRGB = imread("/home/pi/image.jpg", CV_LOAD_IMAGE_COLOR);
     cvtColor (imageRGB,imageHSV,CV_BGR2HSV);
     
